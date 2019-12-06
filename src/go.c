@@ -47,7 +47,6 @@ moves load_go_moves(char *filename)
     printf("%d\n", count);
     m.n = count;
     m.data = (char**)realloc(m.data, count * sizeof(char*));
-    fclose(fp);
     return m;
 }
 

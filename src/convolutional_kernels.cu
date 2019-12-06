@@ -394,7 +394,6 @@ void forward_convolutional_layer_gpu(convolutional_layer l, network_state state)
             //add_bias_gpu(l.output_gpu, l.biases_gpu, l.batch, l.n, l.out_w*l.out_h);
             if (l.activation == SWISH) activate_array_swish_ongpu(l.output_gpu, l.outputs*l.batch, l.activation_input_gpu, l.output_gpu);
             else if (l.activation == MISH) activate_array_mish_ongpu(l.output_gpu, l.outputs*l.batch, l.activation_input_gpu, l.output_gpu);
-            else if (l.activation == NORM_CHAN) activate_array_normalize_channels_ongpu(l.output_gpu, l.outputs*l.batch, l.batch, l.out_c, l.out_w*l.out_h, l.output_gpu);
             else if (l.activation != LINEAR && l.activation != LEAKY) activate_array_ongpu(l.output_gpu, l.outputs*l.batch, l.activation);
             //if(l.activation != LINEAR && l.activation != LEAKY) activate_array_ongpu(l.output_gpu, l.outputs*l.batch, l.activation);
             //if (l.binary || l.xnor) swap_binary(&l);
@@ -600,7 +599,6 @@ void forward_convolutional_layer_gpu(convolutional_layer l, network_state state)
 
     if (l.activation == SWISH) activate_array_swish_ongpu(l.output_gpu, l.outputs*l.batch, l.activation_input_gpu, l.output_gpu);
     else if (l.activation == MISH) activate_array_mish_ongpu(l.output_gpu, l.outputs*l.batch, l.activation_input_gpu, l.output_gpu);
-    else if (l.activation == NORM_CHAN) activate_array_normalize_channels_ongpu(l.output_gpu, l.outputs*l.batch, l.batch, l.out_c, l.out_w*l.out_h, l.output_gpu);
     else if (l.activation != LINEAR) activate_array_ongpu(l.output_gpu, l.outputs*l.batch, l.activation);
     //if(l.dot > 0) dot_error_gpu(l);
     if(l.binary || l.xnor) swap_binary(&l);
@@ -1021,8 +1019,8 @@ void assisted_excitation_forward_gpu(convolutional_layer l, network_state state)
         for (t = 0; t < state.net.num_boxes; ++t) {
             box truth = float_to_box_stride(truth_cpu + t*(4 + 1) + b*l.truths, 1);
             if (!truth.x) break;  // continue;
-            float beta = 0;
-            //float beta = 1 - alpha; // from 0 to 1
+            //float beta = 0;
+            float beta = 1 - alpha; // from 0 to 1
             float dw = (1 - truth.w) * beta;
             float dh = (1 - truth.h) * beta;
             //printf(" alpha = %f, beta = %f, truth.w = %f, dw = %f, tw+dw = %f, l.out_w = %d \n", alpha, beta, truth.w, dw, truth.w+dw, l.out_w);
@@ -1054,9 +1052,9 @@ void assisted_excitation_forward_gpu(convolutional_layer l, network_state state)
     //CHECK_CUDA(cudaPeekAtLastError());
 
     // calc new output
-    //assisted_activation2_gpu(1, l.output_gpu, l.gt_gpu, l.a_avg_gpu, l.out_w * l.out_h, l.out_c, l.batch);  // AE3: gt increases (beta = 1 - alpha = 0)
+    assisted_activation2_gpu(1, l.output_gpu, l.gt_gpu, l.a_avg_gpu, l.out_w * l.out_h, l.out_c, l.batch);  // AE3: gt increases (beta = 1 - alpha = 0)
     //assisted_activation2_gpu(alpha, l.output_gpu, l.gt_gpu, l.a_avg_gpu, l.out_w * l.out_h, l.out_c, l.batch);
-    assisted_activation_gpu(alpha, l.output_gpu, l.gt_gpu, l.a_avg_gpu, l.out_w * l.out_h, l.out_c, l.batch);
+    //assisted_activation_gpu(alpha, l.output_gpu, l.gt_gpu, l.a_avg_gpu, l.out_w * l.out_h, l.out_c, l.batch);
     //cudaStreamSynchronize(get_cuda_stream());
     //CHECK_CUDA(cudaPeekAtLastError());
 

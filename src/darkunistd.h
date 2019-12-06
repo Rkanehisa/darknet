@@ -7,7 +7,7 @@
 *  Please add functionality as needed
 */
 
-#include <winsock2.h>
+#include <Winsock2.h>
 #include <direct.h> /* for _getcwd() and _chdir() */
 #include "getopt.h"
 #include <io.h>

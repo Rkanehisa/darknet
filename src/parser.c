@@ -372,28 +372,14 @@ layer parse_yolo(list *options, size_params params)
 
     if (strcmp(iou_loss, "mse") == 0) l.iou_loss = MSE;
     else if (strcmp(iou_loss, "giou") == 0) l.iou_loss = GIOU;
-    else if (strcmp(iou_loss, "diou") == 0) l.iou_loss = DIOU;
-    else if (strcmp(iou_loss, "ciou") == 0) l.iou_loss = CIOU;
     else l.iou_loss = IOU;
-    fprintf(stderr, "[yolo] params: iou loss: %s (%d), iou_norm: %2.2f, cls_norm: %2.2f, scale_x_y: %2.2f\n",
-        iou_loss, l.iou_loss, l.iou_normalizer, l.cls_normalizer, l.scale_x_y);
-
-    l.beta_nms = option_find_float_quiet(options, "beta_nms", 0.6);
-    char *nms_kind = option_find_str_quiet(options, "nms_kind", "default");
-    if (strcmp(nms_kind, "default") == 0) l.nms_kind = DEFAULT_NMS;
-    else {
-        if (strcmp(nms_kind, "greedynms") == 0) l.nms_kind = GREEDY_NMS;
-        else if (strcmp(nms_kind, "diounms") == 0) l.nms_kind = DIOU_NMS;
-        else l.nms_kind = DEFAULT_NMS;
-        printf("nms_kind: %s (%d), beta = %f \n", nms_kind, l.nms_kind, l.beta_nms);
-    }
+    fprintf(stderr, "[yolo] params: iou loss: %s, iou_norm: %2.2f, cls_norm: %2.2f, scale_x_y: %2.2f\n", (l.iou_loss == MSE ? "mse" : (l.iou_loss == GIOU ? "giou" : "iou")), l.iou_normalizer, l.cls_normalizer, l.scale_x_y);
 
     l.jitter = option_find_float(options, "jitter", .2);
     l.focal_loss = option_find_int_quiet(options, "focal_loss", 0);
 
     l.ignore_thresh = option_find_float(options, "ignore_thresh", .5);
     l.truth_thresh = option_find_float(options, "truth_thresh", 1);
-    l.iou_thresh = option_find_float_quiet(options, "iou_thresh", 1); // recommended to use iou_thresh=0.213 in [yolo]
     l.random = option_find_int_quiet(options, "random", 0);
 
     char *map_file = option_find_str(options, "map", 0);
@@ -449,49 +435,14 @@ layer parse_gaussian_yolo(list *options, size_params params) // Gaussian_YOLOv3
     char *a = option_find_str(options, "mask", 0);
     int *mask = parse_gaussian_yolo_mask(a, &num);
     layer l = make_gaussian_yolo_layer(params.batch, params.w, params.h, num, total, mask, classes, max_boxes);
-    if (l.outputs != params.inputs) {
-        printf("Error: l.outputs == params.inputs \n");
-        printf("filters= in the [convolutional]-layer doesn't correspond to classes= or mask= in [Gaussian_yolo]-layer \n");
-        exit(EXIT_FAILURE);
-    }
-    //assert(l.outputs == params.inputs);
+    assert(l.outputs == params.inputs);
 
     l.scale_x_y = option_find_float_quiet(options, "scale_x_y", 1);
-    l.uc_normalizer = option_find_float_quiet(options, "uc_normalizer", 1.0);
-    l.iou_normalizer = option_find_float_quiet(options, "iou_normalizer", 0.75);
-    l.cls_normalizer = option_find_float_quiet(options, "cls_normalizer", 1.0);
-    char *iou_loss = option_find_str_quiet(options, "iou_loss", "mse");   //  "iou");
-
-    if (strcmp(iou_loss, "mse") == 0) l.iou_loss = MSE;
-    else if (strcmp(iou_loss, "giou") == 0) l.iou_loss = GIOU;
-    else if (strcmp(iou_loss, "diou") == 0) l.iou_loss = DIOU;
-    else if (strcmp(iou_loss, "ciou") == 0) l.iou_loss = CIOU;
-    else l.iou_loss = IOU;
-
-    l.beta_nms = option_find_float_quiet(options, "beta_nms", 0.6);
-    char *nms_kind = option_find_str_quiet(options, "nms_kind", "default");
-    if (strcmp(nms_kind, "default") == 0) l.nms_kind = DEFAULT_NMS;
-    else {
-        if (strcmp(nms_kind, "greedynms") == 0) l.nms_kind = GREEDY_NMS;
-        else if (strcmp(nms_kind, "diounms") == 0) l.nms_kind = DIOU_NMS;
-        else if (strcmp(nms_kind, "cornersnms") == 0) l.nms_kind = CORNERS_NMS;
-        else l.nms_kind = DEFAULT_NMS;
-        printf("nms_kind: %s (%d), beta = %f \n", nms_kind, l.nms_kind, l.beta_nms);
-    }
-
-    char *yolo_point = option_find_str_quiet(options, "yolo_point", "center");
-    if (strcmp(yolo_point, "left_top") == 0) l.yolo_point = YOLO_LEFT_TOP;
-    else if (strcmp(yolo_point, "right_bottom") == 0) l.yolo_point = YOLO_RIGHT_BOTTOM;
-    else l.yolo_point = YOLO_CENTER;
-
-    fprintf(stderr, "[Gaussian_yolo] iou loss: %s (%d), iou_norm: %2.2f, cls_norm: %2.2f, scale: %2.2f, point: %d\n",
-        iou_loss, l.iou_loss, l.iou_normalizer, l.cls_normalizer, l.scale_x_y, l.yolo_point);
-
+    l.max_boxes = option_find_int_quiet(options, "max", 90);
     l.jitter = option_find_float(options, "jitter", .2);
 
     l.ignore_thresh = option_find_float(options, "ignore_thresh", .5);
     l.truth_thresh = option_find_float(options, "truth_thresh", 1);
-    l.iou_thresh = option_find_float_quiet(options, "iou_thresh", 1); // recommended to use iou_thresh=0.213 in [yolo]
     l.random = option_find_int_quiet(options, "random", 0);
 
     char *map_file = option_find_str(options, "map", 0);
@@ -725,9 +676,6 @@ layer parse_batchnorm(list *options, size_params params)
 
 layer parse_shortcut(list *options, size_params params, network net)
 {
-    char *activation_s = option_find_str(options, "activation", "logistic");
-    ACTIVATION activation = get_activation(activation_s);
-
     int assisted_excitation = option_find_float_quiet(options, "assisted_excitation", 0);
     char *l = option_find(options, "from");
     int index = atoi(l);
@@ -737,8 +685,11 @@ layer parse_shortcut(list *options, size_params params, network net)
     layer from = net.layers[index];
     if (from.antialiasing) from = *from.input_layer;
 
-    layer s = make_shortcut_layer(batch, index, params.w, params.h, params.c, from.out_w, from.out_h, from.out_c, assisted_excitation, activation, params.train);
+    layer s = make_shortcut_layer(batch, index, params.w, params.h, params.c, from.out_w, from.out_h, from.out_c, assisted_excitation, params.train);
 
+    char *activation_s = option_find_str(options, "activation", "linear");
+    ACTIVATION activation = get_activation(activation_s);
+    s.activation = activation;
     return s;
 }
 
@@ -748,19 +699,15 @@ layer parse_scale_channels(list *options, size_params params, network net)
     char *l = option_find(options, "from");
     int index = atoi(l);
     if (index < 0) index = params.index + index;
-    int scale_wh = option_find_int_quiet(options, "scale_wh", 0);
 
     int batch = params.batch;
     layer from = net.layers[index];
 
-    layer s = make_scale_channels_layer(batch, index, params.w, params.h, params.c, from.out_w, from.out_h, from.out_c, scale_wh);
+    layer s = make_scale_channels_layer(batch, index, params.w, params.h, params.c, from.out_w, from.out_h, from.out_c);
 
     char *activation_s = option_find_str_quiet(options, "activation", "linear");
     ACTIVATION activation = get_activation(activation_s);
     s.activation = activation;
-    if (activation == SWISH || activation == MISH) {
-        printf(" [scale_channels] layer doesn't support SWISH or MISH activations \n");
-    }
     return s;
 }
 
@@ -778,9 +725,6 @@ layer parse_sam(list *options, size_params params, network net)
     char *activation_s = option_find_str_quiet(options, "activation", "linear");
     ACTIVATION activation = get_activation(activation_s);
     s.activation = activation;
-    if (activation == SWISH || activation == MISH) {
-        printf(" [sam] layer doesn't support SWISH or MISH activations \n");
-    }
     return s;
 }
 
@@ -853,19 +797,6 @@ route_layer parse_route(list *options, size_params params)
     }
     layer.out_c = layer.out_c / layer.groups;
 
-    layer.w = first.w;
-    layer.h = first.h;
-    layer.c = layer.out_c;
-
-    if (n > 3) fprintf(stderr, " \t    ");
-    else if (n > 1) fprintf(stderr, " \t            ");
-    else fprintf(stderr, " \t\t            ");
-
-    fprintf(stderr, "           ");
-    if (layer.groups > 1) fprintf(stderr, "%d/%d", layer.group_id, layer.groups);
-    else fprintf(stderr, "   ");
-    fprintf(stderr, " -> %4d x%4d x%4d \n", layer.out_w, layer.out_h, layer.out_c);
-
     return layer;
 }
 
@@ -903,9 +834,6 @@ void parse_net_options(list *options, network *net)
     net->batch *= net->time_steps;
     net->subdivisions = subdivs;
 
-    net->optimized_memory = option_find_int_quiet(options, "optimized_memory", 0);
-    net->workspace_size_limit = (size_t)1024*1024 * option_find_float_quiet(options, "workspace_size_limit_MB", 1024);  // 1024 MB by default
-
     net->adam = option_find_int_quiet(options, "adam", 0);
     if(net->adam){
         net->B1 = option_find_float(options, "B1", .9);
@@ -922,11 +850,6 @@ void parse_net_options(list *options, network *net)
     net->flip = option_find_int_quiet(options, "flip", 1);
     net->blur = option_find_int_quiet(options, "blur", 0);
     net->mixup = option_find_int_quiet(options, "mixup", 0);
-    int cutmix = option_find_int_quiet(options, "cutmix", 0);
-    int mosaic = option_find_int_quiet(options, "mosaic", 0);
-    if (mosaic && cutmix) net->mixup = 4;
-    else if (cutmix) net->mixup = 2;
-    else if (mosaic) net->mixup = 3;
     net->letter_box = option_find_int_quiet(options, "letter_box", 0);
 
     net->angle = option_find_float_quiet(options, "angle", 0);
@@ -1030,13 +953,6 @@ network parse_network_cfg_custom(char *filename, int batch, int time_steps)
     if(!is_network(s)) error("First section must be [net] or [network]");
     parse_net_options(options, &net);
 
-#ifdef GPU
-    printf("net.optimized_memory = %d \n", net.optimized_memory);
-    if (net.optimized_memory >= 2 && params.train) {
-        pre_allocate_pinned_memory((size_t)1024 * 1024 * 1024 * 8);   // pre-allocate 8 GB CPU-RAM for pinned memory
-    }
-#endif  // GPU
-
     params.h = net.h;
     params.w = net.w;
     params.c = net.c;
@@ -1049,7 +965,6 @@ network parse_network_cfg_custom(char *filename, int batch, int time_steps)
     params.batch = net.batch;
     params.time_steps = net.time_steps;
     params.net = net;
-    printf("batch = %d, time_steps = %d, train = %d \n", net.batch, net.time_steps, params.train);
 
     float bflops = 0;
     size_t workspace_size = 0;
@@ -1088,22 +1003,17 @@ network parse_network_cfg_custom(char *filename, int batch, int time_steps)
             l = parse_crop(options, params);
         }else if(lt == COST){
             l = parse_cost(options, params);
-            l.keep_delta_gpu = 1;
         }else if(lt == REGION){
             l = parse_region(options, params);
-            l.keep_delta_gpu = 1;
         }else if (lt == YOLO) {
             l = parse_yolo(options, params);
-            l.keep_delta_gpu = 1;
         }else if (lt == GAUSSIAN_YOLO) {
             l = parse_gaussian_yolo(options, params);
-            l.keep_delta_gpu = 1;
         }else if(lt == DETECTION){
             l = parse_detection(options, params);
         }else if(lt == SOFTMAX){
             l = parse_softmax(options, params);
             net.hierarchy = l.softmax_tree;
-            l.keep_delta_gpu = 1;
         }else if(lt == NORMALIZATION){
             l = parse_normalization(options, params);
         }else if(lt == BATCHNORM){
@@ -1119,28 +1029,22 @@ network parse_network_cfg_custom(char *filename, int batch, int time_steps)
         }else if(lt == ROUTE){
             l = parse_route(options, params);
             int k;
-            for (k = 0; k < l.n; ++k) {
-                net.layers[l.input_layers[k]].use_bin_output = 0;
-                net.layers[l.input_layers[k]].keep_delta_gpu = 1;
-            }
+            for (k = 0; k < l.n; ++k) net.layers[l.input_layers[k]].use_bin_output = 0;
         }else if (lt == UPSAMPLE) {
             l = parse_upsample(options, params, net);
         }else if(lt == SHORTCUT){
             l = parse_shortcut(options, params, net);
             net.layers[count - 1].use_bin_output = 0;
             net.layers[l.index].use_bin_output = 0;
-            net.layers[l.index].keep_delta_gpu = 1;
         }else if (lt == SCALE_CHANNELS) {
             l = parse_scale_channels(options, params, net);
             net.layers[count - 1].use_bin_output = 0;
             net.layers[l.index].use_bin_output = 0;
-            net.layers[l.index].keep_delta_gpu = 1;
         }
         else if (lt == SAM) {
             l = parse_sam(options, params, net);
             net.layers[count - 1].use_bin_output = 0;
             net.layers[l.index].use_bin_output = 0;
-            net.layers[l.index].keep_delta_gpu = 1;
         }else if(lt == DROPOUT){
             l = parse_dropout(options, params);
             l.output = net.layers[count-1].output;
@@ -1148,7 +1052,6 @@ network parse_network_cfg_custom(char *filename, int batch, int time_steps)
 #ifdef GPU
             l.output_gpu = net.layers[count-1].output_gpu;
             l.delta_gpu = net.layers[count-1].delta_gpu;
-            l.keep_delta_gpu = 1;
 #endif
         }
         else if (lt == EMPTY) {
@@ -1166,42 +1069,6 @@ network parse_network_cfg_custom(char *filename, int batch, int time_steps)
         }else{
             fprintf(stderr, "Type not recognized: %s\n", s->type);
         }
-
-#ifdef GPU
-        // futher GPU-memory optimization: net.optimized_memory == 2
-        if (net.optimized_memory >= 2 && params.train && l.type != DROPOUT)
-        {
-            l.optimized_memory = net.optimized_memory;
-            if (l.output_gpu) {
-                cuda_free(l.output_gpu);
-                //l.output_gpu = cuda_make_array_pinned(l.output, l.batch*l.outputs); // l.steps
-                l.output_gpu = cuda_make_array_pinned_preallocated(NULL, l.batch*l.outputs); // l.steps
-            }
-            if (l.activation_input_gpu) {
-                cuda_free(l.activation_input_gpu);
-                l.activation_input_gpu = cuda_make_array_pinned_preallocated(NULL, l.batch*l.outputs); // l.steps
-            }
-
-            if (l.x_gpu) {
-                cuda_free(l.x_gpu);
-                l.x_gpu = cuda_make_array_pinned_preallocated(NULL, l.batch*l.outputs); // l.steps
-            }
-
-            // maximum optimization
-            if (net.optimized_memory >= 3 && l.type != DROPOUT) {
-                if (l.delta_gpu) {
-                    cuda_free(l.delta_gpu);
-                    //l.delta_gpu = cuda_make_array_pinned_preallocated(NULL, l.batch*l.outputs); // l.steps
-                    //printf("\n\n PINNED DELTA GPU = %d \n", l.batch*l.outputs);
-                }
-            }
-
-            if (l.type == CONVOLUTIONAL) {
-                set_specified_workspace_limit(&l, net.workspace_size_limit);   // workspace size limit 1 GB
-            }
-        }
-#endif // GPU
-
         l.onlyforward = option_find_int_quiet(options, "onlyforward", 0);
         l.stopbackward = option_find_int_quiet(options, "stopbackward", 0);
         l.dontload = option_find_int_quiet(options, "dontload", 0);
@@ -1232,45 +1099,6 @@ network parse_network_cfg_custom(char *filename, int batch, int time_steps)
         if (l.bflops > 0) bflops += l.bflops;
     }
     free_list(sections);
-
-#ifdef GPU
-    if (net.optimized_memory && params.train)
-    {
-        int k;
-        for (k = 0; k < net.n; ++k) {
-            layer l = net.layers[k];
-            // delta GPU-memory optimization: net.optimized_memory == 1
-            if (!l.keep_delta_gpu) {
-                const size_t delta_size = l.outputs*l.batch; // l.steps
-                if (net.max_delta_gpu_size < delta_size) {
-                    net.max_delta_gpu_size = delta_size;
-                    if (net.global_delta_gpu) cuda_free(net.global_delta_gpu);
-                    if (net.state_delta_gpu) cuda_free(net.state_delta_gpu);
-                    assert(net.max_delta_gpu_size > 0);
-                    net.global_delta_gpu = (float *)cuda_make_array(NULL, net.max_delta_gpu_size);
-                    net.state_delta_gpu = (float *)cuda_make_array(NULL, net.max_delta_gpu_size);
-                }
-                if (l.delta_gpu) {
-                    if (net.optimized_memory >= 3) {}
-                    else cuda_free(l.delta_gpu);
-                }
-                l.delta_gpu = net.global_delta_gpu;
-            }
-
-            // maximum optimization
-            if (net.optimized_memory >= 3 && l.type != DROPOUT) {
-                if (l.delta_gpu && l.keep_delta_gpu) {
-                    //cuda_free(l.delta_gpu);   // already called above
-                    l.delta_gpu = cuda_make_array_pinned_preallocated(NULL, l.batch*l.outputs); // l.steps
-                    //printf("\n\n PINNED DELTA GPU = %d \n", l.batch*l.outputs);
-                }
-            }
-
-            net.layers[k] = l;
-        }
-    }
-#endif
-
     net.outputs = get_network_output_size(net);
     net.output = get_network_output(net);
     fprintf(stderr, "Total BFLOPS %5.3f \n", bflops);

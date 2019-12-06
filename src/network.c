@@ -472,7 +472,7 @@ void set_batch_network(network *net, int b)
 
 #ifdef CUDNN
         if(net->layers[i].type == CONVOLUTIONAL){
-            cudnn_convolutional_setup(net->layers + i, cudnn_fastest, 0);
+            cudnn_convolutional_setup(net->layers + i, cudnn_fastest);
         }
         else if (net->layers[i].type == MAXPOOL) {
             cudnn_maxpool_setup(net->layers + i);
@@ -535,16 +535,8 @@ int resize_network(network *net, int w, int h)
             resize_route_layer(&l, net);
         }else if (l.type == SHORTCUT) {
             resize_shortcut_layer(&l, w, h);
-        }else if (l.type == SCALE_CHANNELS) {
-            resize_scale_channels_layer(&l, net);
-        }else if (l.type == DROPOUT) {
-            resize_dropout_layer(&l, inputs);
-            l.output = net->layers[i - 1].output;
-            l.delta = net->layers[i - 1].delta;
-#ifdef GPU
-            l.output_gpu = net->layers[i-1].output_gpu;
-            l.delta_gpu = net->layers[i-1].delta_gpu;
-#endif
+        //}else if (l.type == SCALE_CHANNELS) {
+        //    resize_scale_channels_layer(&l, w, h);
         }else if (l.type == UPSAMPLE) {
             resize_upsample_layer(&l, w, h);
         }else if(l.type == REORG){
@@ -564,12 +556,9 @@ int resize_network(network *net, int w, int h)
         if(l.workspace_size > workspace_size) workspace_size = l.workspace_size;
         inputs = l.outputs;
         net->layers[i] = l;
-        if(l.type != DROPOUT)
-        {
-            w = l.out_w;
-            h = l.out_h;
-        }
-        //if(l.type == AVGPOOL) break;
+        w = l.out_w;
+        h = l.out_h;
+        if(l.type == AVGPOOL) break;
     }
 #ifdef GPU
     const int size = get_network_input_size(*net) * net->batch;
@@ -820,7 +809,6 @@ char *detection_to_json(detection *dets, int nboxes, int classes, char **names, 
     const float thresh = 0.005; // function get_network_boxes() has already filtred dets by actual threshold
 
     char *send_buf = (char *)calloc(1024, sizeof(char));
-    if (!send_buf) return 0;
     if (filename) {
         sprintf(send_buf, "{\n \"frame_id\":%lld, \n \"filename\":\"%s\", \n \"objects\": [ \n", frame_id, filename);
     }
@@ -838,7 +826,6 @@ char *detection_to_json(detection *dets, int nboxes, int classes, char **names, 
                 if (class_id != -1) strcat(send_buf, ", \n");
                 class_id = j;
                 char *buf = (char *)calloc(2048, sizeof(char));
-                if (!buf) return 0;
                 //sprintf(buf, "{\"image_id\":%d, \"category_id\":%d, \"bbox\":[%f, %f, %f, %f], \"score\":%f}",
                 //    image_id, j, dets[i].bbox.x, dets[i].bbox.y, dets[i].bbox.w, dets[i].bbox.h, dets[i].prob[j]);
 
@@ -849,10 +836,7 @@ char *detection_to_json(detection *dets, int nboxes, int classes, char **names, 
                 int buf_len = strlen(buf);
                 int total_len = send_buf_len + buf_len + 100;
                 send_buf = (char *)realloc(send_buf, total_len * sizeof(char));
-                if (!send_buf) {
-                    if (buf) free(buf);
-                    return 0;// exit(-1);
-                }
+                if (!send_buf) return 0;// exit(-1);
                 strcat(send_buf, buf);
                 free(buf);
             }
@@ -1035,7 +1019,6 @@ void free_network(network net)
 #ifdef GPU
     if (gpu_index >= 0) cuda_free(net.workspace);
     else free(net.workspace);
-    free_pinned_memory();
     if (net.input_state_gpu) cuda_free(net.input_state_gpu);
     if (net.input_pinned_cpu) {   // CPU
         if (net.input_pinned_cpu_flag) cudaFreeHost(net.input_pinned_cpu);
